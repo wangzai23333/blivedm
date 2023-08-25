@@ -6,15 +6,37 @@ import blivedm
 
 # 直播间ID的取值看直播间URL
 TEST_ROOM_IDS = [
-    12235923,
-    14327465,
-    21396545,
-    21449083,
-    23105590,
+    30622172
 ]
+import websockets
+import json
+
+connected_clients = set()
+
+async def handle_client(websocket, path):
+    global connected_clients
+    connected_clients.add(websocket)
+    try:
+        await websocket.send(json.dumps({"status": "connected"}))
+        async for message in websocket:  # 你还可以在此处处理客户端发送的消息
+            pass
+    finally:
+        connected_clients.remove(websocket)
+
+async def broadcast(data):
+    if connected_clients:
+        await asyncio.gather(
+            *[client.send(json.dumps(data)) for client in connected_clients]
+        )
+
+async def start_websocket_server():
+    server = await websockets.serve(handle_client, '0.0.0.0', 8888)
+    await server.wait_closed()
+
 
 
 async def main():
+    asyncio.create_task(start_websocket_server())
     await run_single_client()
     await run_multi_clients()
 
@@ -61,27 +83,73 @@ async def run_multi_clients():
 
 
 class MyHandler(blivedm.BaseHandler):
-    # # 演示如何添加自定义回调
-    # _CMD_CALLBACK_DICT = blivedm.BaseHandler._CMD_CALLBACK_DICT.copy()
-    #
-    # # 入场消息回调
-    # async def __interact_word_callback(self, client: blivedm.BLiveClient, command: dict):
-    #     print(f"[{client.room_id}] INTERACT_WORD: self_type={type(self).__name__}, room_id={client.room_id},"
-    #           f" uname={command['data']['uname']}")
-    # _CMD_CALLBACK_DICT['INTERACT_WORD'] = __interact_word_callback  # noqa
+    # 演示如何添加自定义回调
+    _CMD_CALLBACK_DICT = blivedm.BaseHandler._CMD_CALLBACK_DICT.copy()
+    
+    # 入场消息回调
+    async def __interact_word_callback(self, client: blivedm.BLiveClient, command: dict):
+        print(f"[{client.room_id}] INTERACT_WORD: self_type={type(self).__name__}, room_id={client.room_id},"
+              f" uname={command['data']['uname']}")
+        data = {
+            "Type": 3,
+            "Data": {
+                "User": {
+                    "Nickname": command['data']['uname']
+                }
+            }
+        }
+        data["Data"] = json.dumps(data["Data"], separators=(',', ':'))
+        await broadcast(data)  # 添加此行以广播弹幕
+        
+    _CMD_CALLBACK_DICT['INTERACT_WORD'] = __interact_word_callback  # noqa
 
     async def _on_heartbeat(self, client: blivedm.BLiveClient, message: blivedm.HeartbeatMessage):
         print(f'[{client.room_id}] 当前人气值：{message.popularity}')
 
     async def _on_danmaku(self, client: blivedm.BLiveClient, message: blivedm.DanmakuMessage):
         print(f'[{client.room_id}] {message.uname}：{message.msg}')
+        data = {
+            "Type": 1,
+            "Data": {
+                "User": {
+                    "Nickname": message.uname
+                },
+                "Content": message.msg
+            }
+        }
+        data["Data"] = json.dumps(data["Data"], separators=(',', ':'))
+        await broadcast(data)  # 添加此行以广播弹幕
 
     async def _on_gift(self, client: blivedm.BLiveClient, message: blivedm.GiftMessage):
         print(f'[{client.room_id}] {message.uname} 赠送{message.gift_name}x{message.num}'
               f' （{message.coin_type}瓜子x{message.total_coin}）')
+        
+        data = {
+            "Type": 5,
+            "Data": {
+                "User": {
+                    "Nickname": message.uname
+                },
+                "GiftName": message.gift_name,
+                "GiftCount": message.num
+            }
+        }
+        data["Data"] = json.dumps(data["Data"], separators=(',', ':'))
+        await broadcast(data)  # 添加此行以广播弹幕
 
     async def _on_buy_guard(self, client: blivedm.BLiveClient, message: blivedm.GuardBuyMessage):
         print(f'[{client.room_id}] {message.username} 购买{message.gift_name}')
+        data = {
+            "Type": 5,
+            "Data": {
+                "User": {
+                    "Nickname": message.uname
+                },
+                "GiftName": message.gift_name,
+                "GiftCount": message.num
+            }
+        }
+        await broadcast(data)  # 添加此行以广播弹幕
 
     async def _on_super_chat(self, client: blivedm.BLiveClient, message: blivedm.SuperChatMessage):
         print(f'[{client.room_id}] 醒目留言 ¥{message.price} {message.uname}：{message.message}')
