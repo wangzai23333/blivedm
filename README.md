@@ -16,3 +16,5 @@ Python获取bilibili直播弹幕的库，使用WebSocket协议
     ```
 
 3. 运行：sample.py
+
+可与[fay带货版](https://github.com/TheRamU/Fay/tree/fay-sales-edition)进行对接
