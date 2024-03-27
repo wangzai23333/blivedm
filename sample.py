@@ -110,12 +110,18 @@ class MyHandler(blivedm.BaseHandler):
     async def __interact_word_callback_async(self, client: blivedm.BLiveClient, command: dict):
         message = f"[{client.room_id}] INTERACT_WORD: uname={command['data']['uname']}"
         print(message)
-        await broadcast_message(json.dumps({
+        data = {
             "Type": 3,
             "Data": {
                 "User": {
                     "Nickname": command['data']['uname']
-                }}}))
+                }
+            }
+        }
+        data["Data"] = json.dumps(data["Data"], separators=(',', ':'))
+        await broadcast_message(json.dumps(data))
+
+
 
     def __interact_word_callback(self, client: blivedm.BLiveClient, command: dict):
         asyncio.create_task(self.__interact_word_callback_async(client, command))
@@ -127,7 +133,7 @@ class MyHandler(blivedm.BaseHandler):
 
     async def _on_danmaku_async(self, client: blivedm.BLiveClient, message: web_models.DanmakuMessage):
         print(f'[{client.room_id}] {message.uname}：{message.msg}')
-        await broadcast_message(json.dumps({
+        data = {
             "Type": 1,
             "Data": {
                 "User": {
@@ -135,7 +141,9 @@ class MyHandler(blivedm.BaseHandler):
                 },
                 "Content": message.msg
             }
-        }))
+        }
+        data["Data"] = json.dumps(data["Data"], separators=(',', ':'))
+        await broadcast_message(json.dumps(data))
 
     def _on_danmaku(self, client: blivedm.BLiveClient, message: web_models.DanmakuMessage):
         asyncio.create_task(self._on_danmaku_async(client, message))
@@ -145,7 +153,7 @@ class MyHandler(blivedm.BaseHandler):
         message_text = f'[{client.room_id}] {message.uname} 赠送{message.gift_name}x{message.num}' \
                        f' （{message.coin_type}瓜子x{message.total_coin}）'
         print(message_text)
-        await broadcast_message(json.dumps({
+        data = {
             "Type": 5,
             "Data": {
                 "User": {
@@ -153,7 +161,10 @@ class MyHandler(blivedm.BaseHandler):
                 },
                 "GiftName": message.gift_name,
                 "GiftCount": message.num
-        }}))
+            }
+        }
+        data["Data"] = json.dumps(data["Data"], separators=(',', ':'))
+        await broadcast_message(json.dumps(data))
 
     def _on_gift(self, client: blivedm.BLiveClient, message: web_models.GiftMessage):
         asyncio.create_task(self._on_gift_async(client, message))
@@ -161,7 +172,7 @@ class MyHandler(blivedm.BaseHandler):
     async def _on_buy_guard_async(self, client: blivedm.BLiveClient, message: web_models.GuardBuyMessage):
         message_text = f'[{client.room_id}] {message.username} 购买{message.gift_name}'
         print(message_text)
-        await broadcast_message(json.dumps({
+        data = {
             "Type": 5,
             "Data": {
                 "User": {
@@ -169,7 +180,10 @@ class MyHandler(blivedm.BaseHandler):
                 },
                 "GiftName": message.gift_name,
                 "GiftCount": message.num
-        }}))
+            }
+        }
+        data["Data"] = json.dumps(data["Data"], separators=(',', ':'))
+        await broadcast_message(json.dumps(data))
 
     def _on_buy_guard(self, client: blivedm.BLiveClient, message: web_models.GuardBuyMessage):
         asyncio.create_task(self._on_buy_guard_async(client, message))
